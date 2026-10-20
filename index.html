@@ -216,7 +216,7 @@ FORM: A single-screen field quiz; the requested narrow-column form takes precede
     <section class="question-card" id="quiz" aria-labelledby="question">
       <div class="question-meta"><span class="category" id="category">Our cosmic neighborhood</span><span>One answer. No rush.</span></div>
       <h2 id="question" tabindex="-1"></h2>
-      <p class="instruction" id="instruction">Choose the answer you think is right<span class="key-hint">, or press <kbd>A</kbd>&ndash;<kbd>D</kbd></span>.</p>
+      <p class="instruction" id="instruction">Choose the answer you think is right.<span class="key-hint"> With an answer focused, press <kbd>A</kbd>&ndash;<kbd>D</kbd>.</span></p>
       <div class="response-console" id="response-console">
         <div class="console-header">
           <strong>Response console</strong>
@@ -285,7 +285,6 @@ FORM: A single-screen field quiz; the requested narrow-column form takes precede
         const key = String.fromCharCode(65 + index);
         const button = document.createElement("button");
         button.className = "answer";
-        button.setAttribute("aria-keyshortcuts", key);
         const letter = document.createElement("span");
         letter.className = "letter";
         letter.setAttribute("aria-hidden", "true");
@@ -378,7 +377,18 @@ FORM: A single-screen field quiz; the requested narrow-column form takes precede
       $("hint").textContent = "Fuelled by curiosity. Not a countdown.";
       renderQuestion(true);
     });
-    document.addEventListener("keydown", (event) => {
+    $("answers").addEventListener("focusin", () => {
+      if (answered) return;
+      [...$("answers").children].forEach((button, index) => {
+        button.setAttribute("aria-keyshortcuts", String.fromCharCode(65 + index));
+      });
+    });
+    $("answers").addEventListener("focusout", (event) => {
+      if ($("answers").contains(event.relatedTarget)) return;
+      [...$("answers").children].forEach((button) => button.removeAttribute("aria-keyshortcuts"));
+    });
+    $("answers").addEventListener("keydown", (event) => {
+      if (!document.activeElement.matches("#answers > .answer:not(:disabled)")) return;
       if (answered || $("quiz").hidden || event.repeat || event.isComposing || event.ctrlKey || event.altKey || event.metaKey || !/^[a-z]$/i.test(event.key)) return;
       const button = $("answers").children[event.key.toUpperCase().charCodeAt(0) - 65];
       if (!button) return;
