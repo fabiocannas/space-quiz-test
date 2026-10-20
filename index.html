@@ -35,7 +35,7 @@ FORM: A single-screen field quiz; the requested narrow-column form takes precede
     * { box-sizing: border-box; }
     body { margin: 0; background: var(--bg); font-size: 15px; line-height: 1.5; }
     button { font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
-    button:focus-visible { outline: 3px solid var(--accent); outline-offset: 4px; }
+    button:focus-visible, summary:focus-visible { outline: 3px solid var(--accent); outline-offset: 4px; }
     [hidden] { display: none !important; }
     .shell { width: min(540px, calc(100% - 40px)); margin: 0 auto; padding: 34px 0 24px; }
     .masthead { display: flex; justify-content: space-between; align-items: center; }
@@ -137,6 +137,12 @@ FORM: A single-screen field quiz; the requested narrow-column form takes precede
     .result-stats { display: flex; justify-content: center; gap: 28px; border-top: 1px solid var(--line); padding-top: 20px; font-size: 13px; }
     .result-stats strong { display: block; font-size: 19px; }
     .result-stats span { color: var(--muted); }
+    .review { margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--line); text-align: left; overflow-wrap: anywhere; }
+    .review summary { cursor: pointer; font-weight: 650; }
+    .review ol { margin-bottom: 0; padding-left: 22px; }
+    .review li + li { margin-top: 24px; }
+    .review h3 { margin: 0; font-size: 16px; }
+    .review p { margin: 8px 0 0; }
     .confetti { position: fixed; top: -20px; left: var(--x); width: 7px; height: 12px; background: var(--color); pointer-events: none; animation: fall 2.2s var(--delay) ease-in forwards; z-index: 2; }
     @keyframes satellite-orbit { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
     @keyframes correct-pop { 0% { transform: scale(.97); } 55% { transform: scale(1.025); } 100% { transform: scale(1); } }
@@ -238,6 +244,10 @@ FORM: A single-screen field quiz; the requested narrow-column form takes precede
         <div><strong id="accuracy">0%</strong><span>Accuracy</span></div>
         <div><strong>10</strong><span>New discoveries</span></div>
       </div>
+      <details class="review" id="review" hidden>
+        <summary>Review missed answers</summary>
+        <ol id="review-items"></ol>
+      </details>
       <button class="next" id="restart">Explore again <span aria-hidden="true">&circlearrowright;</span></button>
     </section>
     <p class="hint" id="hint">Fuelled by curiosity. Not a countdown.</p>
@@ -261,6 +271,7 @@ FORM: A single-screen field quiz; the requested narrow-column form takes precede
     let current = 0;
     let score = 0;
     let answered = false;
+    const missedAnswers = [];
 
     function updateProgress(completed) {
       $("progress").value = completed;
@@ -308,6 +319,7 @@ FORM: A single-screen field quiz; the requested narrow-column form takes precede
       const item = questions[current];
       const correct = selected === item.correct;
       if (correct) score++;
+      else missedAnswers.push({ questionIndex: current, selected });
       [...$("answers").children].forEach((button, index) => {
         button.disabled = true;
         button.removeAttribute("aria-keyshortcuts");
@@ -347,6 +359,27 @@ FORM: A single-screen field quiz; the requested narrow-column form takes precede
       $("result-copy").textContent = reaction[2];
       $("final-score").textContent = score;
       $("accuracy").textContent = `${score * 10}%`;
+      $("review-items").replaceChildren();
+      missedAnswers.forEach(({ questionIndex, selected }) => {
+        const item = questions[questionIndex];
+        const entry = document.createElement("li");
+        const heading = document.createElement("h3");
+        heading.textContent = item.question;
+        entry.append(heading);
+        [
+          ["Your answer: ", item.answers[selected]],
+          ["Correct answer: ", item.answers[item.correct]],
+          ["Why: ", item.fact]
+        ].forEach(([label, text]) => {
+          const paragraph = document.createElement("p");
+          const title = document.createElement("strong");
+          title.textContent = label;
+          paragraph.append(title, document.createTextNode(text));
+          entry.append(paragraph);
+        });
+        $("review-items").append(entry);
+      });
+      $("review").hidden = missedAnswers.length === 0;
       $("result-title").focus();
       if (score >= 8 && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
         for (let i = 0; i < 32; i++) {
@@ -371,6 +404,10 @@ FORM: A single-screen field quiz; the requested narrow-column form takes precede
     $("restart").addEventListener("click", () => {
       current = 0;
       score = 0;
+      missedAnswers.length = 0;
+      $("review-items").replaceChildren();
+      $("review").open = false;
+      $("review").hidden = true;
       document.querySelectorAll(".confetti").forEach((piece) => piece.remove());
       $("results").hidden = true;
       $("quiz").hidden = false;
