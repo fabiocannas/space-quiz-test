@@ -92,7 +92,8 @@ FORM: A single-screen field quiz; the requested narrow-column form takes precede
     .category::before { content: ""; width: 6px; height: 6px; background: var(--accent); border-radius: 50%; }
     h2 { margin: 0; font-size: 23px; line-height: 1.3; letter-spacing: -.6px; font-weight: 700; text-wrap: balance; }
     h2:focus { outline: none; }
-    .instruction { color: var(--muted); font-size: 13px; margin: 10px 0 20px; }
+    .instruction { color: var(--muted); font-size: 13px; margin: 10px 0 20px; text-wrap: balance; }
+    .instruction kbd { display: inline-block; min-width: 19px; margin: 0 2px; padding: 0 4px; border: 1px solid var(--console-line); border-bottom-width: 2px; border-radius: 3px; background: var(--soft); color: var(--ink); font-family: inherit; font-size: 11px; font-weight: 700; line-height: 15px; text-align: center; }
     .response-console { position: relative; padding: 14px; border: 1px solid var(--console-line); border-radius: 3px; background: var(--bg); }
     .response-console::before, .response-console::after { content: ""; position: absolute; width: 11px; height: 11px; border: solid var(--accent); pointer-events: none; }
     .response-console::before { top: -2px; left: -2px; border-width: 2px 0 0 2px; }
@@ -157,6 +158,9 @@ FORM: A single-screen field quiz; the requested narrow-column form takes precede
     @media (prefers-color-scheme: dark) {
       :root { --bg: #122420; --surface: #1a302a; --ink: #e3eee8; --muted: #afc3b9; --line: #3c554a; --accent: #a6ddbd; --accent-ink: #143427; --soft: #2a4538; --correct: #9ce5b2; --correct-bg: #203f2b; --wrong: #ffb1ba; --wrong-bg: #4b2530; --console-line: #769c87; --shadow: 0 14px 40px -24px #0008; }
     }
+    @media (hover: none) and (pointer: coarse) {
+      .key-hint { display: none; }
+    }
     @media (max-width: 440px) {
       .shell { width: calc(100% - 32px); padding-top: 22px; }
       .intro { padding: 10px 0 24px; }
@@ -212,7 +216,7 @@ FORM: A single-screen field quiz; the requested narrow-column form takes precede
     <section class="question-card" id="quiz" aria-labelledby="question">
       <div class="question-meta"><span class="category" id="category">Our cosmic neighborhood</span><span>One answer. No rush.</span></div>
       <h2 id="question" tabindex="-1"></h2>
-      <p class="instruction" id="instruction">Choose the answer you think is right.</p>
+      <p class="instruction" id="instruction">Choose the answer you think is right.<span class="key-hint"> With an answer focused, press <kbd>A</kbd>&ndash;<kbd>D</kbd>.</span></p>
       <div class="response-console" id="response-console">
         <div class="console-header">
           <strong>Response console</strong>
@@ -278,12 +282,13 @@ FORM: A single-screen field quiz; the requested narrow-column form takes precede
       $("next-label").textContent = current === questions.length - 1 ? "See my results" : "Next question";
       $("answers").replaceChildren();
       item.answers.forEach((answer, index) => {
+        const key = String.fromCharCode(65 + index);
         const button = document.createElement("button");
         button.className = "answer";
         const letter = document.createElement("span");
         letter.className = "letter";
         letter.setAttribute("aria-hidden", "true");
-        letter.textContent = String.fromCharCode(65 + index);
+        letter.textContent = key;
         const label = document.createElement("span");
         label.className = "answer-label";
         label.textContent = answer;
@@ -305,6 +310,7 @@ FORM: A single-screen field quiz; the requested narrow-column form takes precede
       if (correct) score++;
       [...$("answers").children].forEach((button, index) => {
         button.disabled = true;
+        button.removeAttribute("aria-keyshortcuts");
         if (index === item.correct || index === selected) {
           const isCorrect = index === item.correct;
           button.classList.add(isCorrect ? "correct" : "wrong");
@@ -370,6 +376,25 @@ FORM: A single-screen field quiz; the requested narrow-column form takes precede
       $("quiz").hidden = false;
       $("hint").textContent = "Fuelled by curiosity. Not a countdown.";
       renderQuestion(true);
+    });
+    $("answers").addEventListener("focusin", () => {
+      if (answered) return;
+      [...$("answers").children].forEach((button, index) => {
+        button.setAttribute("aria-keyshortcuts", String.fromCharCode(65 + index));
+      });
+    });
+    $("answers").addEventListener("focusout", (event) => {
+      if ($("answers").contains(event.relatedTarget)) return;
+      [...$("answers").children].forEach((button) => button.removeAttribute("aria-keyshortcuts"));
+    });
+    $("answers").addEventListener("keydown", (event) => {
+      if (!document.activeElement.matches("#answers > .answer:not(:disabled)")) return;
+      if (answered || $("quiz").hidden || event.repeat || event.isComposing || event.ctrlKey || event.altKey || event.metaKey || !/^[a-z]$/i.test(event.key)) return;
+      const button = $("answers").children[event.key.toUpperCase().charCodeAt(0) - 65];
+      if (!button) return;
+      event.preventDefault();
+      // Clicking keeps keyboard selection on the exact same path as a pointer choice.
+      button.click();
     });
     renderQuestion();
   </script>
